@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/max2sax/raft-chat/models"
-	"github.com/oklog/ulid/v2"
 )
 
 type messageWriteRequest struct {
@@ -30,30 +29,44 @@ func NewStorage() *Storage {
 
 func (s *Storage) messageWriter() {
 	for req := range s.messageWriteChan {
-		_, ok := s.rooms.Load(req.message.RoomID)
+		_, ok := s.rooms.Load(req.message.RoomName)
 		if !ok {
 			req.result <- fmt.Errorf("room not found")
 			continue
 		}
 
-		val, _ := s.messages.Load(req.message.RoomID)
+		val, _ := s.messages.Load(req.message.RoomName)
 		msgs := val.([]models.Message)
 		msgs = append(msgs, *req.message)
-		s.messages.Store(req.message.RoomID, msgs)
+		s.messages.Store(req.message.RoomName, msgs)
 
 		req.result <- nil
 	}
 }
 
-func (s *Storage) CreateRoom(name, description string) *models.Room {
-	id := ulid.Make().String()
+func (s *Storage) CreateRoom(name string, description *string) *models.Room {
 	room := &models.Room{
-		ID:          id,
-		Name:        name,
-		Description: description,
+		ID:   name,
+		Name: name,
 	}
-	s.rooms.Store(id, room)
-	s.messages.Store(id, []models.Message{})
+	// Store or update if exists
+	rm, loaded := s.rooms.Load(name)
+	if loaded {
+		if description != nil {
+			room.Description = *description
+			// Update description if room already exists
+			s.rooms.Store(name, room)
+		} else {
+			room.Description = rm.(*models.Room).Description
+		}
+		return room
+	}
+	if description != nil {
+		room.Description = *description
+	}
+	s.rooms.Store(name, room)
+	// Initialize messages if room is new
+	s.messages.Store(name, []models.Message{})
 	return room
 }
 
@@ -66,12 +79,12 @@ func (s *Storage) AddMessage(message *models.Message) error {
 	return <-result
 }
 
-func (s *Storage) GetMessages(roomID string) ([]models.Message, error) {
-	_, ok := s.rooms.Load(roomID)
+func (s *Storage) GetMessages(roomName string) ([]models.Message, error) {
+	_, ok := s.rooms.Load(roomName)
 	if !ok {
 		return nil, fmt.Errorf("room not found")
 	}
-	val, _ := s.messages.Load(roomID)
+	val, _ := s.messages.Load(roomName)
 	msgs := val.([]models.Message)
 	// Sort by ID ascending (chronological)
 	// theoretically these are already sorted by ID except maybe the end
@@ -84,4 +97,21 @@ func (s *Storage) GetMessages(roomID string) ([]models.Message, error) {
 		return msgs[len(msgs)-20:], nil
 	}
 	return msgs, nil
+}
+
+func (s *Storage) GetRoom(roomName string) (*models.Room, error) {
+	room, ok := s.rooms.Load(roomName)
+	if !ok {
+		return nil, fmt.Errorf("room not found")
+	}
+	return room.(*models.Room), nil
+}
+
+func (s *Storage) GetAllRooms() []*models.Room {
+	var rooms []*models.Room
+	s.rooms.Range(func(key, value interface{}) bool {
+		rooms = append(rooms, value.(*models.Room))
+		return true
+	})
+	return rooms
 }

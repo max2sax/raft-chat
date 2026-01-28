@@ -11,8 +11,8 @@ import (
 )
 
 type CreateRoomRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
 }
 
 type CreateMessageRequest struct {
@@ -38,6 +38,8 @@ func NewAPI(store *storage.Storage, server *http.Server) *API {
 
 func (a *API) RegisterRoutes() *API {
 	a.mux.HandleFunc("POST /rooms", a.createRoomHandler)
+	a.mux.HandleFunc("GET /rooms", a.listRoomsHandler)
+	a.mux.HandleFunc("GET /rooms/{roomID}", a.getRoomHandler)
 	a.mux.HandleFunc("POST /rooms/{roomID}/messages", a.addMessageHandler)
 	a.mux.HandleFunc("GET /rooms/{roomID}/messages", a.getMessagesHandler)
 	return a
@@ -89,7 +91,7 @@ func (a *API) addMessageHandler(w http.ResponseWriter, r *http.Request) {
 
 	msg := &models.Message{
 		ID:        ulid.Make().String(),
-		RoomID:    roomID,
+		RoomName:  roomID,
 		Timestamp: time.Now(),
 		Sender:    req.Sender,
 		Content:   req.Content,
@@ -101,6 +103,7 @@ func (a *API) addMessageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(msg)
 }
 
 func (a *API) getMessagesHandler(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +118,37 @@ func (a *API) getMessagesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+	if msgs == nil {
+		msgs = []models.Message{}
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(msgs)
+}
+
+func (a *API) listRoomsHandler(w http.ResponseWriter, r *http.Request) {
+	rooms := a.storage.GetAllRooms()
+	if rooms == nil {
+		rooms = []*models.Room{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rooms)
+}
+
+func (a *API) getRoomHandler(w http.ResponseWriter, r *http.Request) {
+	roomID := r.PathValue("roomID")
+	if roomID == "" {
+		http.Error(w, "Room ID required", http.StatusBadRequest)
+		return
+	}
+
+	room, err := a.storage.GetRoom(roomID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(room)
 }

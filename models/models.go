@@ -10,7 +10,7 @@ type Room struct {
 
 type Message struct {
 	ID        string    `json:"id"`
-	RoomID    string    `json:"roomID"`
+	RoomName  string    `json:"roomName"`
 	Timestamp time.Time `json:"timestamp"`
 	Sender    string    `json:"sender"`
 	Content   string    `json:"content"`

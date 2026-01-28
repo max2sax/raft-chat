@@ -29,17 +29,20 @@ The service is organized into clear layers:
 ### Running Locally
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/max2sax/raft-chat.git
 cd raft-chat
 ```
 
 2. Build the service:
+
 ```bash
 go build
 ```
 
 3. Run the service:
+
 ```bash
 ./raft-chat
 ```
@@ -49,7 +52,8 @@ The service will start on `http://localhost:8080`
 ## API Endpoints
 
 ### Create a Room
-```
+
+```text
 POST /rooms
 Content-Type: application/json
 
@@ -60,16 +64,57 @@ Content-Type: application/json
 ```
 
 Response: `201 Created`
+
 ```json
 {
-  "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "id": "general",
+  "name": "general",
+  "description": "General discussion"
+}
+```
+
+### Get All Rooms
+
+``` text
+GET /rooms
+```
+
+Response: `200 OK`
+
+```json
+[
+  {
+    "id": "general",
+    "name": "general",
+    "description": "General discussion"
+  },
+  {
+    "id": "random",
+    "name": "random",
+    "description": "Random discussions"
+  }
+]
+```
+
+### Get a Room
+
+``` text
+GET /rooms/{roomID}
+```
+
+Response: `200 OK`
+
+```json
+{
+  "id": "general",
   "name": "general",
   "description": "General discussion"
 }
 ```
 
 ### Send a Message
-```
+
+```text
 POST /rooms/{roomID}/messages
 Content-Type: application/json
 
@@ -82,16 +127,18 @@ Content-Type: application/json
 Response: `201 Created`
 
 ### Get Messages
-```
+
+```text
 GET /rooms/{roomID}/messages
 ```
 
 Response: `200 OK`
+
 ```json
 [
   {
     "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-    "roomID": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "roomName": "general",
     "timestamp": "2026-01-28T12:34:56.789Z",
     "sender": "alice",
     "content": "Hello world!"
@@ -109,8 +156,14 @@ curl -X POST http://localhost:8080/rooms \
   -H "Content-Type: application/json" \
   -d '{"name":"general"}'
 
-# Send a message (replace {roomID} with the ID from above)
-curl -X POST http://localhost:8080/rooms/{roomID}/messages \
+# Get all rooms
+curl http://localhost:8080/rooms
+
+# Get a specific room
+curl http://localhost:8080/rooms/general
+
+# Send a message
+curl -X POST http://localhost:8080/rooms/general/messages \
   -H "Content-Type: application/json" \
   -d '{"sender":"user1","content":"Hello!"}'
 
@@ -120,9 +173,11 @@ curl http://localhost:8080/rooms/{roomID}/messages
 
 ## Design Notes
 
-- **Message Concurrency**: Messages are written to storage through a single-writer pattern using channels, ensuring thread-safe concurrent access without race conditions. A syncmap is used for the message storage to prevent reads during a write operation.
-- **Message IDs**: Uses ULIDs for both rooms and messages, providing sortable, timestamp-based identifiers
+- **Message Concurrency**: Messages are written to storage through a single-writer pattern using channels, ensuring thread-safe concurrent access without race conditions
+- **Room IDs**: Room names are used as unique identifiers
+- **Message IDs**: Uses ULIDs for messages, providing sortable, timestamp-based identifiers
 - **Message Limit**: Returns only the 20 most recent messages per room
+- **Empty Collections**: Returns empty arrays instead of null when no data exists
 
 ## Future features
 
@@ -132,5 +187,6 @@ curl http://localhost:8080/rooms/{roomID}/messages
 - **Allow editing of messages**
 - **Create users validate that the message senders are valid users**
 - **Add database for permanent storage**
+- **Add more logging**
 - **...**
 - **Scale and take over the world**
