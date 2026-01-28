@@ -3,8 +3,11 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
+	"github.com/max2sax/raft-chat/models"
 	"github.com/max2sax/raft-chat/storage"
+	"github.com/oklog/ulid/v2"
 )
 
 type CreateRoomRequest struct {
@@ -73,7 +76,6 @@ func (a *API) addMessageHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Room ID required", http.StatusBadRequest)
 		return
 	}
-
 	var req CreateMessageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
@@ -85,7 +87,15 @@ func (a *API) addMessageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.storage.AddMessage(roomID, req.Sender, req.Content); err != nil {
+	msg := &models.Message{
+		ID:        ulid.Make().String(),
+		RoomID:    roomID,
+		Timestamp: time.Now(),
+		Sender:    req.Sender,
+		Content:   req.Content,
+	}
+
+	if err := a.storage.AddMessage(msg); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
