@@ -1,10 +1,15 @@
 # raft-chat
 
-A basic chat service written in Go for demonstration purposes. The service provides HTTP endpoints for managing chat rooms and messages, with in-memory storage.
+A basic chat service written in Go for demonstration purposes. The service provides HTTP endpoints for managing chat rooms and messages, with in-memory storage
+
+## Developer
+
+Michael Archambault
 
 ## Overview
 
 raft-chat is a simple HTTP service that allows you to:
+
 - Create chat rooms with names and descriptions
 - Send messages to rooms
 - Retrieve messages from rooms (up to 20 most recent)
