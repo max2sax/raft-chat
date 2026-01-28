@@ -19,19 +19,24 @@ type CreateMessageRequest struct {
 
 type API struct {
 	storage *storage.Storage
+	mux     *http.ServeMux
 	server  *http.Server
 }
 
 func NewAPI(store *storage.Storage, server *http.Server) *API {
+	mux := http.NewServeMux()
+	server.Handler = mux
 	return &API{
 		storage: store,
+		mux:     mux,
 		server:  server,
 	}
 }
 
 func (a *API) RegisterRoutes() {
-	http.HandleFunc("/rooms", a.createRoomHandler)
-	http.HandleFunc("/rooms/", a.roomsHandler)
+	a.mux.HandleFunc("POST /rooms", a.createRoomHandler)
+	a.mux.HandleFunc("POST /rooms/{roomID}/messages", a.addMessageHandler)
+	a.mux.HandleFunc("GET /rooms/{roomID}/messages", a.getMessagesHandler)
 }
 
 func (a *API) Start() error {
@@ -62,12 +67,7 @@ func (a *API) createRoomHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) addMessageHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	roomID := r.URL.Path[len("/rooms/"):]
+	roomID := r.PathValue("roomID")
 	if roomID == "" {
 		http.Error(w, "Room ID required", http.StatusBadRequest)
 		return
@@ -93,12 +93,7 @@ func (a *API) addMessageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) getMessagesHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	roomID := r.URL.Path[len("/rooms/"):]
+	roomID := r.PathValue("roomID")
 	if roomID == "" {
 		http.Error(w, "Room ID required", http.StatusBadRequest)
 		return
@@ -112,21 +107,4 @@ func (a *API) getMessagesHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(msgs)
-}
-
-func (a *API) roomsHandler(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-	if len(path) > 7 && path[7:15] == "/messages" {
-		roomID := path[7 : len(path)-9]
-		r.URL.Path = "/rooms/" + roomID + "/messages"
-		if r.Method == http.MethodPost {
-			a.addMessageHandler(w, r)
-		} else if r.Method == http.MethodGet {
-			a.getMessagesHandler(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	} else {
-		http.NotFound(w, r)
-	}
 }
