@@ -33,10 +33,11 @@ func NewAPI(store *storage.Storage, server *http.Server) *API {
 	}
 }
 
-func (a *API) RegisterRoutes() {
+func (a *API) RegisterRoutes() *API {
 	a.mux.HandleFunc("POST /rooms", a.createRoomHandler)
 	a.mux.HandleFunc("POST /rooms/{roomID}/messages", a.addMessageHandler)
 	a.mux.HandleFunc("GET /rooms/{roomID}/messages", a.getMessagesHandler)
+	return a
 }
 
 func (a *API) Start() error {

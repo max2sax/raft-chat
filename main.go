@@ -18,10 +18,8 @@ func main() {
 	}
 
 	// Initialize API
-	chatAPI := api.NewAPI(store, server)
-
-	// Register routes
-	chatAPI.RegisterRoutes()
+	chatAPI := api.NewAPI(store, server).
+		RegisterRoutes()
 
 	// Start server
 	fmt.Println("Server starting on :8080")
